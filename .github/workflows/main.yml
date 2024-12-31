@@ -31,5 +31,5 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: true
-          tags: bibica/lcmp-auto-wordpress-wp-cli-php8.3-fpm-alpine:latest
+          tags: bibica/wordpress-wp-cli-php8.3-fpm-alpine
           platforms: linux/amd64,linux/arm64
