@@ -13,13 +13,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Check base image tag
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Check base image digest
         id: check_base_image
-        uses: diogoalexandrefr/docker-tag-lookup@v1
-        with:
-          image: wordpress
-          tag: php8.3-fpm-alpine
-          
+        run: |
+          # Pull the image and get the digest
+          docker pull wordpress:php8.3-fpm-alpine
+          IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' wordpress:php8.3-fpm-alpine)
+          echo "Base image digest is $IMAGE_DIGEST"
+          echo "::set-output name=digest::$IMAGE_DIGEST"
+
       - name: Save current base image digest
         id: save_digest
         run: echo "${{ steps.check_base_image.outputs.digest }}" > wordpress_php8.3-fpm-alpine_digest.txt
@@ -38,7 +43,6 @@ jobs:
             echo "needs_build=true" >> $GITHUB_ENV
           fi
 
-      # Gán giá trị cho output để dùng trong job build-and-push
       - name: Set needs_build output
         id: set_needs_build
         run: |
@@ -82,4 +86,3 @@ jobs:
           git push
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
