@@ -25,9 +25,17 @@ jobs:
           echo "Base image digest is $IMAGE_DIGEST"
           echo "BASE_IMAGE_DIGEST=$IMAGE_DIGEST" >> $GITHUB_ENV
 
+      - name: Print working directory and files
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Listing files: $(ls -al)"
+
       - name: Save current base image digest
         id: save_digest
-        run: echo "${{ env.BASE_IMAGE_DIGEST }}" > wordpress_php8.3-fpm-alpine_digest.txt
+        run: |
+          echo "${{ env.BASE_IMAGE_DIGEST }}" > wordpress_php8.3-fpm-alpine_digest.txt
+          echo "File created:"
+          ls -al
 
       - name: Compare with previous digest
         id: compare
@@ -42,6 +50,7 @@ jobs:
             echo "No previous digest found. Triggering build."
             echo "needs_build=true" >> $GITHUB_ENV
           fi
+
 
   build-and-push:
     needs: check-base-image
