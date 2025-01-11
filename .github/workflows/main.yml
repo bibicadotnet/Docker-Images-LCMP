@@ -23,17 +23,17 @@ jobs:
           docker pull wordpress:php8.3-fpm-alpine
           IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' wordpress:php8.3-fpm-alpine)
           echo "Base image digest is $IMAGE_DIGEST"
-          echo "::set-output name=digest::$IMAGE_DIGEST"
+          echo "BASE_IMAGE_DIGEST=$IMAGE_DIGEST" >> $GITHUB_ENV
 
       - name: Save current base image digest
         id: save_digest
-        run: echo "${{ steps.check_base_image.outputs.digest }}" > wordpress_php8.3-fpm-alpine_digest.txt
+        run: echo "${{ env.BASE_IMAGE_DIGEST }}" > wordpress_php8.3-fpm-alpine_digest.txt
 
       - name: Compare with previous digest
         id: compare
         run: |
           if [[ -f wordpress_php8.3-fpm-alpine_digest.txt ]]; then
-            if [[ "$(cat wordpress_php8.3-fpm-alpine_digest.txt)" != "${{ steps.check_base_image.outputs.digest }}" ]]; then
+            if [[ "$(cat wordpress_php8.3-fpm-alpine_digest.txt)" != "${{ env.BASE_IMAGE_DIGEST }}" ]]; then
               echo "needs_build=true" >> $GITHUB_ENV
             else
               echo "needs_build=false" >> $GITHUB_ENV
@@ -41,15 +41,6 @@ jobs:
           else
             echo "No previous digest found. Triggering build."
             echo "needs_build=true" >> $GITHUB_ENV
-          fi
-
-      - name: Set needs_build output
-        id: set_needs_build
-        run: |
-          if [[ -f wordpress_php8.3-fpm-alpine_digest.txt && "$(cat wordpress_php8.3-fpm-alpine_digest.txt)" != "${{ steps.check_base_image.outputs.digest }}" ]]; then
-            echo "::set-output name=needs_build::true"
-          else
-            echo "::set-output name=needs_build::false"
           fi
 
   build-and-push:
