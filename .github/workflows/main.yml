@@ -15,7 +15,9 @@ jobs:
       - name: Get image digest from Docker Hub API
         id: get_digest
         run: |
-          DIGEST=$(curl -s https://registry.hub.docker.com/v2/repositories/library/wordpress/tags/php8.3-fpm-alpine | jq -r '.images[0].digest')
+          RESPONSE=$(curl -s https://registry.hub.docker.com/v2/repositories/library/wordpress/tags/php8.3-fpm-alpine)
+          echo "Response: $RESPONSE"
+          DIGEST=$(echo "$RESPONSE" | jq -r '.images[0].digest')
           echo "digest=$DIGEST" >> $GITHUB_ENV
 
       - name: Save current base image digest
@@ -36,6 +38,7 @@ jobs:
             echo "No previous digest found. Triggering build."
             echo "needs_build=true" >> $GITHUB_ENV
           fi
+
 
   build-and-push:
     needs: check-base-image
