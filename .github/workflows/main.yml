@@ -7,29 +7,68 @@ on:
   workflow_dispatch: # Cho phép chạy thủ công nếu cần
 
 jobs:
-  build-and-push:
+  check-base-image:
     runs-on: ubuntu-22.04
-
     steps:
-      # Checkout mã nguồn
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Cài đặt buildx
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2        
+      - name: Check base image tag
+        id: check_base_image
+        uses: diogoalexandrefr/docker-tag-lookup@v1
+        with:
+          image: wordpress
+          tag: php8.3-fpm-alpine
+          
+      - name: Save current base image digest
+        id: save_digest
+        run: echo "${{ steps.check_base_image.outputs.digest }}" > wordpress_php8.3-fpm-alpine_digest.txt
 
-      # Đăng nhập vào Docker Hub
+      - name: Compare with previous digest
+        id: compare
+        run: |
+          if [[ -f wordpress_php8.3-fpm-alpine_digest.txt ]]; then
+            if [[ "$(cat wordpress_php8.3-fpm-alpine_digest.txt)" != "${{ steps.check_base_image.outputs.digest }}" ]]; then
+              echo "needs_build=true" >> $GITHUB_ENV
+            else
+              echo "needs_build=false" >> $GITHUB_ENV
+            fi
+          else
+            echo "No previous digest found. Triggering build."
+            echo "needs_build=true" >> $GITHUB_ENV
+          fi
+
+  build-and-push:
+    needs: check-base-image
+    if: env.needs_build == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Build và push image đa nền tảng
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           push: true
           tags: bibica/wordpress-wp-cli-php8.3-fpm-alpine
           platforms: linux/amd64,linux/arm64
+
+      - name: Update digest in repository
+        run: |
+          echo "${{ steps.check_base_image.outputs.digest }}" > wordpress_php8.3-fpm-alpine_digest.txt
+          git config --local user.name "GitHub Actions"
+          git config --local user.email "actions@github.com"
+          git add wordpress_php8.3-fpm-alpine_digest.txt
+          git commit -m "Update base image digest to ${{ steps.check_base_image.outputs.digest }}"
+          git push
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
