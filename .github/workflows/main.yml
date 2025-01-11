@@ -38,9 +38,19 @@ jobs:
             echo "needs_build=true" >> $GITHUB_ENV
           fi
 
+      # Gán giá trị cho output để dùng trong job build-and-push
+      - name: Set needs_build output
+        id: set_needs_build
+        run: |
+          if [[ -f wordpress_php8.3-fpm-alpine_digest.txt && "$(cat wordpress_php8.3-fpm-alpine_digest.txt)" != "${{ steps.check_base_image.outputs.digest }}" ]]; then
+            echo "::set-output name=needs_build::true"
+          else
+            echo "::set-output name=needs_build::false"
+          fi
+
   build-and-push:
     needs: check-base-image
-    if: env.needs_build == 'true'
+    if: ${{ needs.check-base-image.outputs.needs_build == 'true' }}
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -72,3 +82,4 @@ jobs:
           git push
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
