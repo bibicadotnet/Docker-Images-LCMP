@@ -19,29 +19,37 @@ jobs:
           DIGEST=$(curl -s https://registry.hub.docker.com/v2/repositories/library/wordpress/tags/php8.3-fpm-alpine | jq -r '.images[0].digest')
           echo "digest=$DIGEST" >> $GITHUB_ENV
 
-      - name: Save current base image digest
-        id: save_digest
-        run: |
-          echo "${{ env.digest }}" > wordpress_php8.3-fpm-alpine_digest.txt
-
       - name: Compare with previous digest
         id: compare
         run: |
           if [[ -f wordpress_php8.3-fpm-alpine_digest.txt ]]; then
+            # Nếu có file, so sánh giá trị digest
             if [[ "$(cat wordpress_php8.3-fpm-alpine_digest.txt)" != "${{ env.digest }}" ]]; then
               echo "needs_build=true" >> $GITHUB_ENV
             else
               echo "needs_build=false" >> $GITHUB_ENV
             fi
           else
+            # Nếu không có file (lần chạy đầu tiên), cần build
             echo "No previous digest found. Triggering build."
             echo "needs_build=true" >> $GITHUB_ENV
-          fi
 
+      - name: Save current base image digest
+        id: save_digest
+        run: |
+          # Lưu giá trị digest vào file để so sánh lần sau
+          echo "${{ env.digest }}" > wordpress_php8.3-fpm-alpine_digest.txt
+          git config --local user.name "GitHub Actions"
+          git config --local user.email "actions@github.com"
+          git add wordpress_php8.3-fpm-alpine_digest.txt
+          git commit -m "Save base image digest"
+          git push
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-and-push:
     needs: check-base-image
-    if: ${{ needs.check-base-image.outputs.needs_build == 'true' }}
+    if: ${{ env.needs_build == 'true' }}
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -65,11 +73,11 @@ jobs:
 
       - name: Update digest in repository
         run: |
-          echo "${{ steps.check_base_image.outputs.digest }}" > wordpress_php8.3-fpm-alpine_digest.txt
+          echo "${{ steps.get_digest.outputs.digest }}" > wordpress_php8.3-fpm-alpine_digest.txt
           git config --local user.name "GitHub Actions"
           git config --local user.email "actions@github.com"
           git add wordpress_php8.3-fpm-alpine_digest.txt
-          git commit -m "Update base image digest to ${{ steps.check_base_image.outputs.digest }}"
+          git commit -m "Update base image digest to ${{ steps.get_digest.outputs.digest }}"
           git push
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
